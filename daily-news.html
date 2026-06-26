@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Daily Briefing</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0e1117;
+    --surface:   #161b26;
+    --border:    #1f2a3c;
+    --accent:    #3b82f6;
+    --accent2:   #60a5fa;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --world:     #3b82f6;
+    --portugal:  #d4202a;
+    --portugal2: #006600;
+    --tag-bg:    #1e2d45;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 32px 20px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  .masthead h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  .edition-date {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .status-dot.live { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+
+  #fetchBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.2s, transform 0.1s;
+  }
+  #fetchBtn:hover:not(:disabled) { background: var(--accent2); }
+  #fetchBtn:active:not(:disabled) { transform: scale(0.97); }
+  #fetchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+  }
+
+  .tab {
+    padding: 14px 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab.active-world  { color: var(--world);    border-color: var(--world); }
+  .tab.active-pt     { color: var(--portugal); border-color: var(--portugal); }
+  .tab:hover:not(.active-world):not(.active-pt) { color: var(--text); }
+
+  .flag { margin-right: 6px; }
+
+  main { padding: 28px 32px 48px; max-width: 900px; }
+
+  /* ---- states ---- */
+  #emptyState, #loadingState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    gap: 16px;
+    color: var(--muted);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    opacity: 0.3;
+  }
+
+  .empty-label {
+    font-size: 0.95rem;
+    font-weight: 400;
+    text-align: center;
+    max-width: 280px;
+  }
+
+  /* ---- spinner ---- */
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-label {
+    font-size: 0.88rem;
+    color: var(--muted);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+  /* ---- news cards ---- */
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .news-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .story {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: default;
+  }
+  .story:hover { border-color: #2a3d5a; background: #1a2234; }
+
+  .story-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .story-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.35;
+  }
+
+  .story-tag {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--tag-bg);
+    color: var(--accent2);
+  }
+  .story-tag.pt {
+    background: #2a1214;
+    color: #f87171;
+  }
+  .story-tag.sport  { color: #34d399; background: #0a2a1f; }
+  .story-tag.economy { color: #fbbf24; background: #2a1f05; }
+  .story-tag.politics { color: #c084fc; background: #1e1028; }
+  .story-tag.science { color: #67e8f9; background: #071e26; }
+  .story-tag.culture { color: #f9a8d4; background: #280d1c; }
+
+  .story-summary {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .story-meta {
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .story-source {
+    font-weight: 500;
+    color: #475569;
+  }
+
+  /* ---- section divider ---- */
+  .section-gap { margin-top: 36px; }
+
+  /* ---- error ---- */
+  .error-box {
+    background: #1c0a0a;
+    border: 1px solid #7f1d1d;
+    border-radius: 8px;
+    padding: 20px;
+    color: #fca5a5;
+    font-size: 0.875rem;
+    margin-top: 16px;
+  }
+
+  /* ---- last updated ---- */
+  #lastUpdated {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 24px;
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 20px 16px 16px; }
+    .tabs  { padding: 0 16px; }
+    main   { padding: 20px 16px 40px; }
+    .tab   { padding: 12px 14px; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="masthead">
+    <h1>Daily Briefing</h1>
+    <span class="edition-date" id="editionDate"></span>
+  </div>
+  <div class="header-right">
+    <div class="status-dot" id="statusDot"></div>
+    <button id="fetchBtn">Get Today's News</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active-world" id="tabWorld" onclick="switchTab('world')">🌍 <span>World</span></button>
+  <button class="tab" id="tabPT" onclick="switchTab('pt')">🇵🇹 <span>Portugal</span></button>
+</div>
+
+<main>
+  <div id="emptyState">
+    <div class="empty-icon">📰</div>
+    <div class="empty-label">Press "Get Today's News" to fetch your personalised briefing</div>
+  </div>
+  <div id="loadingState" style="display:none">
+    <div class="spinner"></div>
+    <div class="loading-label" id="loadingLabel">Fetching world news…</div>
+  </div>
+  <div id="newsContainer" style="display:none"></div>
+  <div id="errorBox" style="display:none" class="error-box"></div>
+  <div id="lastUpdated" style="display:none"></div>
+</main>
+
+<script>
+  const SYSTEM_PROMPT = `You are a professional news briefing assistant. Your job is to provide a concise, accurate, and well-structured daily news briefing.
+
+When given a request for news, use the web_search tool to find the latest stories, then return ONLY a valid JSON object — no markdown, no code fences, no preamble.
+
+The JSON structure must be exactly:
+{
+  "world": [
+    {
+      "title": "Headline here",
+      "summary": "2-3 sentence summary of the story",
+      "category": "one of: politics|economy|science|culture|sport|other",
+      "source": "Source name"
+    }
+  ],
+  "portugal": [
+    {
+      "title": "Headline here",
+      "summary": "2-3 sentence summary",
+      "category": "one of: politics|economy|science|culture|sport|other",
+      "source": "Source name"
+    }
+  ]
+}
+
+Provide exactly 6 world stories and 5 Portugal stories. Stories must be from the last 24-48 hours. Be factual and neutral. No invented stories.`;
+
+  const USER_PROMPT = `Fetch today's top news stories for me. I need:
+1. The 6 most important world news stories from the last 24 hours (international geopolitics, economy, science, major events)
+2. The 5 most important Portugal news stories from the last 24 hours (politics, economy, weather, sport, society)
+
+Search for both in parallel. Today's date is ${new Date().toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}.`;
+
+  let currentTab = 'world';
+  let newsData = null;
+
+  // Set date in header
+  document.getElementById('editionDate').textContent =
+    new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabWorld').className = 'tab' + (tab === 'world' ? ' active-world' : '');
+    document.getElementById('tabPT').className   = 'tab' + (tab === 'pt'    ? ' active-pt'   : '');
+    if (newsData) renderNews();
+  }
+
+  function tagClass(category, isPT) {
+    const base = isPT ? 'story-tag pt' : 'story-tag';
+    const cats = { politics:'politics', economy:'economy', science:'science', culture:'culture', sport:'sport' };
+    return base + (cats[category] ? ' ' + cats[category] : '');
+  }
+
+  function renderNews() {
+    const container = document.getElementById('newsContainer');
+    const stories = currentTab === 'world' ? newsData.world : newsData.portugal;
+    const isPT = currentTab === 'pt';
+
+    if (!stories || stories.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);padding:40px 0;text-align:center">No stories available.</div>';
+      return;
+    }
+
+    container.innerHTML = stories.map(s => `
+      <div class="story">
+        <div class="story-header">
+          <div class="story-title">${escHtml(s.title)}</div>
+          <span class="${tagClass(s.category, isPT)}">${escHtml(s.category || 'news')}</span>
+        </div>
+        <div class="story-summary">${escHtml(s.summary)}</div>
+        <div class="story-meta">
+          <span class="story-source">${escHtml(s.source || '')}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setLoading(msg) {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('newsContainer').style.display = 'none';
+    document.getElementById('lastUpdated').style.display = 'none';
+    document.getElementById('loadingState').style.display = 'flex';
+    document.getElementById('loadingLabel').textContent = msg;
+    document.getElementById('statusDot').className = 'status-dot';
+  }
+
+  function setError(msg) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorBox').textContent = '⚠ ' + msg;
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('fetchBtn').disabled = false;
+    document.getElementById('fetchBtn').textContent = 'Retry';
+  }
+
+  document.getElementById('fetchBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Fetching…';
+    setLoading('Searching for today\'s top stories…');
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: USER_PROMPT }]
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API error ${resp.status}`);
+      }
+
+      const data = await resp.json();
+
+      // Extract text from all content blocks
+      const fullText = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
+
+      if (!fullText.trim()) {
+        throw new Error('No response text received from the model. Please try again.');
+      }
+
+      // Parse JSON — strip possible markdown fences
+      let parsed;
+      try {
+        const clean = fullText.replace(/```json|```/g, '').trim();
+        // Find the JSON object
+        const start = clean.indexOf('{');
+        const end   = clean.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error('No JSON found');
+        parsed = JSON.parse(clean.slice(start, end + 1));
+      } catch(e) {
+        throw new Error('Could not parse news data. The model may have returned an unexpected format. Please retry.');
+      }
+
+      if (!parsed.world && !parsed.portugal) {
+        throw new Error('Unexpected data structure returned. Please retry.');
+      }
+
+      newsData = parsed;
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('newsContainer').style.display = 'block';
+      document.getElementById('newsContainer').className = 'news-grid';
+      document.getElementById('statusDot').className = 'status-dot live';
+      document.getElementById('lastUpdated').style.display = 'block';
+      document.getElementById('lastUpdated').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+      btn.textContent = 'Refresh';
+      btn.disabled = false;
+
+      renderNews();
+
+    } catch(err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    }
+  });
+</script>
+</body>
+</html>
